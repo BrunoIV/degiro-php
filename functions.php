@@ -147,9 +147,9 @@ function confirmOrder($ch, $confirmationId, $postParams, $productId, $qty){
 }
 
 
-function updatePortfolio($ch){
+function updatePortfolio(){
 	global $config;
-
+	$ch = curl_init();
 	$header = array(
 		 'authority: trader.degiro.nl'
 		,'cache-control: max-age=0'
@@ -430,8 +430,9 @@ function getTradingInfo($ch, $issueId){
 	return $ret;
 }
 
-function getDegiroConfig($ch){
+function getDegiroConfig(){
 	global $config;
+	$ch = curl_init();
 	$url = 'https://trader.degiro.nl/login/secure/config';
 	$header=array();
 	$cookieFile = __DIR__ . '/cookie.txt';
@@ -509,7 +510,7 @@ function checkLogin($ch){
 		return false;
 
 	$result = json_decode($result, true);
-	foreach($result as $k => $v)
+	foreach($result['data'] as $k => $v)
 		$config["$k"] = $v;
 
 	/** get intAccount (clientId) from PaUrl **/
