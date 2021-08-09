@@ -460,9 +460,9 @@ function getDegiroConfig($ch){
 	}
 	$result = json_decode($result, true);
 
-	$clientId = $result['clientId'];
+	$clientId = $result['data']['clientId'];
 
-	foreach($result as $k => $v){
+	foreach($result['data'] as $k => $v){
 		$config["$k"] = $v;
 	}
 
