@@ -15,8 +15,10 @@ function trySell($ch, $p, $trySell){
 	$symbol		= $p['symbol'];
 	$qty		= $p['qtyAvail'];
 	$cost		= $p['breakEvenPrice'];
+	$secondaryId	= $p['vwdIdSecondary'];
+	
+	$info		= getTradingInfo($ch, $secondaryId);
 
-	$info		= getTradingInfo($ch, $issueId);
 
 	$last		= (float) $info['last'];
 	$prev		= (float) $info['prev'];
@@ -225,7 +227,7 @@ function updatePortfolio(){
 		$portfolio["$k"]['name'] = $productInfo['data']["$k"]['name'];
 		$portfolio["$k"]['vwdId'] = $productInfo['data']["$k"]['vwdId'];
 		$portfolio["$k"]['symbol'] = $productInfo['data']["$k"]['symbol'];
-	//	$portfolio["$k"]['isin'] = $productInfo['data']["$k"]['isin'];
+		$portfolio["$k"]['vwdIdSecondary'] = $productInfo['data']["$k"]['vwdIdSecondary'];
 	}
 
 	#if($force){
@@ -484,13 +486,14 @@ function getDegiroConfig(){
 
 }
 
-function checkLogin($ch){
+function checkLogin(){
 	/*******
 	 * Test access to config, then PaUrl to get clientId, 
 	 * and then portfolio. 
 	 * If any fails, we need to generate a new cookie?
 	 */
 	global $config;
+	$ch = curl_init();
 
 	/** Test access to config **/
 	$headers[] = 'Content-Type: application/json;charset=UTF-8';
