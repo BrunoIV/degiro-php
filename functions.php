@@ -165,16 +165,12 @@ function updatePortfolio(){
 
 	$url = $config['tradingUrl'] . "v5/update/" . $config['intAccount'] . ";jsessionid=" . $config['sessionId'] . "?portfolio=0";
 
+
 	curl_setopt_array($ch, [
 		CURLOPT_URL				=> $url,
-		CURLOPT_HTTPHEADER		=> $header,
-		CURLOPT_RETURNTRANSFER	=> true,
-		CURLOPT_COOKIEFILE		=> $config['cookieFile'],
-		CURLOPT_COOKIEJAR		=> $config['cookieFile'],
-		CURLOPT_POST			=> false,
-		CURLOPT_HTTP_VERSION	=> CURL_HTTP_VERSION_2_0,
-		CURLOPT_ENCODING		=> '',
 	]);
+
+
 	$result = curl_exec($ch);
 	$info = curl_getinfo($ch);
 	if($info['http_code'] != 200 && $info['http_code'] != 201){
@@ -182,7 +178,7 @@ function updatePortfolio(){
 		die();
 		$result = file_get_contents(__DIR__ . '/portfolio.json'); 
 	}
-	
+
 	$result = json_decode($result,true);
 	$portfolio = array();
 	$cash = false;
