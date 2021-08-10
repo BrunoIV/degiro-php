@@ -129,7 +129,7 @@ function confirmOrder($ch, $confirmationId, $postParams, $productId, $qty){
 	if(isset($result['errors'])){
 		echo "Error confirming order, check result\n";
 	}
-	var_dump($result);
+
 	if($result['status'] == 0){
 		/*
 		$wrote = 0;
@@ -168,6 +168,7 @@ function updatePortfolio(){
 
 	curl_setopt_array($ch, [
 		CURLOPT_URL				=> $url,
+		CURLOPT_RETURNTRANSFER	=> true
 	]);
 
 
@@ -184,6 +185,7 @@ function updatePortfolio(){
 	$cash = false;
 	$searchProductIds = array();
 	$openOrders = getOpenOrders($ch);
+
 
 	foreach($result['portfolio']['value'] as $k => $p){
 		$productId = $p['id'];
