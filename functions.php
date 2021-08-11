@@ -236,15 +236,20 @@ function updatePortfolio(){
 	return $portfolio;
 }
 
-function getOpenOrders($ch){
+/**
+ * Retrieve the active buy/sell orders
+ * https://trader.degiro.nl/trader/#/orders/open
+ */
+function getOpenOrders(){
 	global $config;
-	#$intAccount = intAccount;
-	#$sessionId = sessionId;
+	$ch = curl_init();
+	
 	$cookieFile = $config['cookieFile'];
 
 	$url = $url = $config['tradingUrl'] . "v5/update/" . $config['intAccount'] . ";jsessionid=" . $config['sessionId'] . "?orders=0";
 	curl_setopt_array($ch, [
 		CURLOPT_URL				=> $url,
+		CURLOPT_RETURNTRANSFER	=> true
 	]);
 	$result = curl_exec($ch);
 	$result = json_decode($result,true);
