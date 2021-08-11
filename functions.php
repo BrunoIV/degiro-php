@@ -220,12 +220,13 @@ function updatePortfolio(){
 		}
 		$searchProductIds[] = $k;
 	}
-	$productInfo = getProductInfo($ch, $searchProductIds);
+	$productInfo = getArrayProducts($searchProductIds);
+
 	foreach($portfolio as $k => $p){
-		$portfolio["$k"]['name'] = $productInfo['data']["$k"]['name'];
-		$portfolio["$k"]['vwdId'] = $productInfo['data']["$k"]['vwdId'];
-		$portfolio["$k"]['symbol'] = $productInfo['data']["$k"]['symbol'];
-		$portfolio["$k"]['vwdIdSecondary'] = $productInfo['data']["$k"]['vwdIdSecondary'];
+		$portfolio["$k"]['name'] = $productInfo["$k"]['name'];
+		$portfolio["$k"]['vwdId'] = $productInfo["$k"]['vwdId'];
+		$portfolio["$k"]['symbol'] = $productInfo["$k"]['symbol'];
+		$portfolio["$k"]['vwdIdSecondary'] = $productInfo["$k"]['vwdIdSecondary'];
 	}
 
 	#if($force){
@@ -328,37 +329,6 @@ function checkProspects($ch, $zone){
 	}
 }
 
-function getProductInfo($ch, $productIds){
-	global $config;
-	#$userToken = clientId;
-	#$intAccount = intAccount;
-	#$sessionId = sessionId;
-
-	if(count($productIds) < 1){
-		return array();
-	}
-
-	$url = $config['productSearchUrl'] . "v5/products/info?intAccount=" . $config['intAccount'] . "&sessionId=" . $config['sessionId'];
-	$params = '["' . implode('","', $productIds) . '"]';
-
-	$header = array(
-		 'Origin: https://trader.degiro.nl'
-		,'Content-Type: application/json;charset=UTF-8'
-	);
-
-	curl_setopt_array($ch, [
-		CURLOPT_URL				=> $url,
-		CURLOPT_HTTPHEADER		=> $header,
-		CURLOPT_POST			=> true,
-		CURLOPT_POSTFIELDS		=> $params,
-	]);
-	$result = curl_exec($ch);
-	$info = curl_getinfo($ch);
-	if($info['http_code'] != 200){
-		return array();
-	}
-	return json_decode($result, true);
-}
 
 function getTradingInfo($ch, $issueId){
 	global $config;
@@ -594,7 +564,7 @@ function webLogin($ch){
  * Get a list with the ids of the products marked as favorite
  * https://trader.degiro.nl/trader/#/favourites/1153120
  */
-function getFavouritesIds() {
+function getFavoritesIds() {
 	global $config;
 	$intAccount = $config['intAccount'];
 	$sessionId = $config['sessionId'];
@@ -615,6 +585,14 @@ function getFavouritesIds() {
 	return $result['data'][0]['productIds'];
 
 }
+
+/**
+ * Get a list with the products marked as favorite
+ */
+function getFavoriteProducts() {
+	return getArrayProducts(getFavoritesIds());
+}
+
 
 /**
  * Get the information of an array of products using their id's
