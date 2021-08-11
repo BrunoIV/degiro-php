@@ -589,6 +589,41 @@ function webLogin($ch){
 	return $info['http_code'];
 }
 
+
+/**
+ * Get a list with the ids of the products marked as favorite
+ * https://trader.degiro.nl/trader/#/favourites/1153120
+ */
+function getFavouritesIds() {
+	global $config;
+	$userToken = $config['clientId'];
+	$intAccount = $config['intAccount'];
+	$sessionId = $config['sessionId'];
+	
+	$url = "https://trader.degiro.nl/pa/secure/favourites/lists?" . $intAccount . "&sessionId=" . $sessionId;
+	$ch = curl_init();
+
+	$header = array();
+	$cookieFile = __DIR__ . '/cookie.txt';
+	
+    
+	curl_setopt_array($ch, [
+		CURLOPT_URL		=> $url,
+		CURLOPT_RETURNTRANSFER	=> true
+	]);
+
+	$result = curl_exec($ch);
+	$info = curl_getinfo($ch);
+	$result = json_decode($result,true);
+
+	if($info['http_code'] != 200){
+		die('could not get config');
+	}
+	
+	return $result['data'][0]['productIds'];
+
+}
+
 function checkJson($json){
 	if($json != json_decode(json_encode($json), true)){
 		if($debug)
