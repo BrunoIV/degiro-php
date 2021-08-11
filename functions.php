@@ -366,6 +366,7 @@ function getTradingInfo($ch, $issueId){
 	curl_setopt_array($ch, [
 		CURLOPT_URL		=> $url,
 		CURLOPT_POST	=> false,
+		CURLOPT_RETURNTRANSFER	=> true
 	]);
 	$result = curl_exec($ch);
 	$result = json_decode($result,true);
@@ -404,12 +405,7 @@ function getTradingInfo($ch, $issueId){
 		$prev = array_slice($result['series'][1]['data'], -2, 1)[0][1];
 		$last = array_slice($result['series'][1]['data'], -1)[0][1];
 	}
-	#var_dump($url);
-	#var_dump($result['series'][1]['data']);
-	#echo "prev: $prev\n";
-	#echo "last: $last\n";
-
-
+	
 	$ret = array(
 		'quality'	=> $result['series'][0]['data']['quality'],
 		'lastPrice'	=> $result['series'][0]['data']['lastPrice'],
