@@ -596,32 +596,63 @@ function webLogin($ch){
  */
 function getFavouritesIds() {
 	global $config;
-	$userToken = $config['clientId'];
 	$intAccount = $config['intAccount'];
 	$sessionId = $config['sessionId'];
 	
 	$url = "https://trader.degiro.nl/pa/secure/favourites/lists?" . $intAccount . "&sessionId=" . $sessionId;
 	$ch = curl_init();
 
-	$header = array();
-	$cookieFile = __DIR__ . '/cookie.txt';
-	
-    
 	curl_setopt_array($ch, [
 		CURLOPT_URL		=> $url,
 		CURLOPT_RETURNTRANSFER	=> true
 	]);
 
 	$result = curl_exec($ch);
-	$info = curl_getinfo($ch);
+	checkStatus(curl_getinfo($ch), 'could not get favourites');
 	$result = json_decode($result,true);
-
-	if($info['http_code'] != 200){
-		die('could not get config');
-	}
+	curl_close($ch);
 	
 	return $result['data'][0]['productIds'];
 
+}
+
+/**
+ * Get the information of an array of products using their id's
+ * @param $ids - Array of integers
+ * @return Array with the info of products
+ */
+function getArrayProducts($ids) {
+	global $config;
+	$intAccount = $config['intAccount'];
+	$sessionId = $config['sessionId'];
+	
+	$url = "https://trader.degiro.nl/product_search/secure/v5/products/info?intAccount=$intAccount&sessionId=$sessionId";
+	$ch = curl_init($url);
+
+	$headers = array(
+		'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36',
+		'Content-Type: application/json;charset=UTF-8'
+	);
+	
+	curl_setopt_array($ch, [
+		CURLOPT_HTTPHEADER		=> $headers,
+		CURLOPT_POSTFIELDS		=> json_encode($ids),
+		CURLOPT_POST			=> true,
+		CURLOPT_RETURNTRANSFER		=> true
+	]);
+
+
+	$result = curl_exec($ch);
+	checkStatus(curl_getinfo($ch), 'could not get products');
+	curl_close($ch);
+	return json_decode($result, true)['data'];
+}
+
+
+function checkStatus($info, $msg) {
+	if($info['http_code'] != 200){
+		die($msg);
+	}
 }
 
 function checkJson($json){
