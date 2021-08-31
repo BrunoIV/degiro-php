@@ -217,12 +217,13 @@ function updatePortfolio(){
 		}
 		$searchProductIds[] = $k;
 	}
-	$productInfo = getProductInfo($ch, $searchProductIds);
+	$productInfo = getArrayProducts($searchProductIds);
+
 	foreach($portfolio as $k => $p){
-		$portfolio["$k"]['name'] = $productInfo['data']["$k"]['name'];
-		$portfolio["$k"]['vwdId'] = $productInfo['data']["$k"]['vwdId'];
-		$portfolio["$k"]['symbol'] = $productInfo['data']["$k"]['symbol'];
-		$portfolio["$k"]['vwdIdSecondary'] = $productInfo['data']["$k"]['vwdIdSecondary'];
+		$portfolio["$k"]['name'] = $productInfo["$k"]['name'];
+		$portfolio["$k"]['vwdId'] = $productInfo["$k"]['vwdId'];
+		$portfolio["$k"]['symbol'] = $productInfo["$k"]['symbol'];
+		$portfolio["$k"]['vwdIdSecondary'] = $productInfo["$k"]['vwdIdSecondary'];
 	}
 
 	#if($force){
@@ -325,37 +326,6 @@ function checkProspects($ch, $zone){
 	}
 }
 
-function getProductInfo($ch, $productIds){
-	global $config;
-	#$userToken = clientId;
-	#$intAccount = intAccount;
-	#$sessionId = sessionId;
-
-	if(count($productIds) < 1){
-		return array();
-	}
-
-	$url = $config['productSearchUrl'] . "v5/products/info?intAccount=" . $config['intAccount'] . "&sessionId=" . $config['sessionId'];
-	$params = '["' . implode('","', $productIds) . '"]';
-
-	$header = array(
-		 'Origin: https://trader.degiro.nl'
-		,'Content-Type: application/json;charset=UTF-8'
-	);
-
-	curl_setopt_array($ch, [
-		CURLOPT_URL				=> $url,
-		CURLOPT_HTTPHEADER		=> $header,
-		CURLOPT_POST			=> true,
-		CURLOPT_POSTFIELDS		=> $params,
-	]);
-	$result = curl_exec($ch);
-	$info = curl_getinfo($ch);
-	if($info['http_code'] != 200){
-		return array();
-	}
-	return json_decode($result, true);
-}
 
 function getTradingInfo($ch, $issueId){
 	global $config;
@@ -584,6 +554,80 @@ function webLogin($ch){
 	$info = curl_getinfo($ch);
 
 	return $info['http_code'];
+}
+
+
+/**
+ * Get a list with the ids of the products marked as favorite
+ * https://trader.degiro.nl/trader/#/favourites/1153120
+ */
+function getFavoritesIds() {
+	global $config;
+	$intAccount = $config['intAccount'];
+	$sessionId = $config['sessionId'];
+	
+	$url = "https://trader.degiro.nl/pa/secure/favourites/lists?" . $intAccount . "&sessionId=" . $sessionId;
+	$ch = curl_init();
+
+	curl_setopt_array($ch, [
+		CURLOPT_URL		=> $url,
+		CURLOPT_RETURNTRANSFER	=> true
+	]);
+
+	$result = curl_exec($ch);
+	checkStatus(curl_getinfo($ch), 'could not get favourites');
+	$result = json_decode($result,true);
+	curl_close($ch);
+	
+	return $result['data'][0]['productIds'];
+
+}
+
+/**
+ * Get a list with the products marked as favorite
+ */
+function getFavoriteProducts() {
+	return getArrayProducts(getFavoritesIds());
+}
+
+
+/**
+ * Get the information of an array of products using their id's
+ * @param $ids - Array of integers
+ * @return Array with the info of products
+ */
+function getArrayProducts($ids) {
+	global $config;
+	$intAccount = $config['intAccount'];
+	$sessionId = $config['sessionId'];
+	
+	$url = "https://trader.degiro.nl/product_search/secure/v5/products/info?intAccount=$intAccount&sessionId=$sessionId";
+	$ch = curl_init($url);
+
+	$headers = array(
+		'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36',
+		'Content-Type: application/json;charset=UTF-8'
+	);
+	
+	curl_setopt_array($ch, [
+		CURLOPT_HTTPHEADER		=> $headers,
+		CURLOPT_POSTFIELDS		=> json_encode($ids),
+		CURLOPT_POST			=> true,
+		CURLOPT_RETURNTRANSFER		=> true
+	]);
+
+
+	$result = curl_exec($ch);
+	checkStatus(curl_getinfo($ch), 'could not get products');
+	curl_close($ch);
+	return json_decode($result, true)['data'];
+}
+
+
+function checkStatus($info, $msg) {
+	if($info['http_code'] != 200){
+		die($msg);
+	}
 }
 
 function checkJson($json){
