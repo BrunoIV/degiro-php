@@ -16,7 +16,7 @@ function trySell($ch, $p, $trySell){
 	$qty		= $p['qtyAvail'];
 	$cost		= $p['breakEvenPrice'];
 	$secondaryId	= $p['vwdIdSecondary'];
-	
+
 	$info		= getTradingInfo($ch, $secondaryId);
 
 
@@ -28,10 +28,10 @@ function trySell($ch, $p, $trySell){
 	$diff		= (float) ($lastPrice * $qty) - ($totalCost);
 	$trNr		= $info['trNr'];
 
-	$trySellUn	= normalizeFloat($trySell/$qty, 4);
+	$trySellUn	= normalizeFloat($trySell/$qty);
 
 	if($debug){
-		$xCost = normalizeFloat($cost,4);
+		$xCost = normalizeFloat($cost);
 		echo date('Y-m-d H:i:s') . "|$symbol \ttrying to sell at $trySell ($trySellUn, costed $xCost), ($trNr variations)";
 	}
 
@@ -41,30 +41,18 @@ function trySell($ch, $p, $trySell){
 		echo "|no data\n";
 		return;
 	}
-	if($last > $prev){	// still rising, lets wait
-		if($debug){
-			if($trySell <= $totalLast){
-				echo "|$last > $prev ... still rising, skipping (would sell)\n";
-			}else{
-				echo "|$last > $prev ... still rising, skipping (would not sell)\n";
-			}
-			return;
-		}
-	}
 
-	#placeOrder($ch, $productId, $qty, 3.5);
-	if($trySell <= $totalLast){ // at least 1€ for comissions
+	if($trySell >= $totalLast){ // at least 1€ for comissions
 		if($debug)
 			echo "|lastPrice $lastPrice ($totalLast) - placing order!!\n";
 
 		$sellingPrice = max($lastPrice, $trySellUn);
+
 		echo date('Y-m-d H:i:s') . "|Placing order for $text to sell at $trySell ($qty * $sellingPrice)\n";
 		placeOrder($ch, $productId, $qty, $sellingPrice);
 	}else{
 		if($debug)
 			echo "|not high enough to sell. lastPrice $lastPrice ($totalLast) diff: $diff\n";
-
-		#echo date('Y-m-d H:i:s') . "|$text not high enough to sell ($lastPrice) ($diff)\n";
 	}
 
 }
@@ -82,6 +70,7 @@ function placeOrder($ch, $productId, $qty, $price){
 	$logfile = __DIR__ . '/placing_orders.txt';
 	$log = time() . "|$productId|$qty|$price\n";
 	file_put_contents($logfile, $log, FILE_APPEND);
+
 
 	$url = $config['tradingUrl'] . 'v5/checkOrder' . ';jsessionid=' . $config['sessionId'] . '?intAccount=' . $config['intAccount'] . '&sessionId=' . $config['sessionId'];
 	//$url = 'https://trader.degiro.nl/trading/secure/v5/checkOrder;jsessionid=' . sessionId . '?intAccount=' . intAccount . '&sessionId=' . sessionId;
@@ -102,19 +91,16 @@ function placeOrder($ch, $productId, $qty, $price){
 		die("invalid json\n");
 	}
 	$result = json_decode($result, true);
+	$result = $result['data'];
 
-	if($result['status'] == 0){
-		$confirmationId = $result['confirmationId'];
-		confirmOrder($ch, $confirmationId, $postParams, $productId, $qty);
-	}else{
-		echo "Error placing order, check result\n";
-		var_dump($result);
-	}
+	$confirmationId = $result['confirmationId'];
+	//$transactionFees = $result['transactionFees'];
+	confirmOrder($ch, $confirmationId, $postParams, $productId, $qty);
 }
 
 function confirmOrder($ch, $confirmationId, $postParams, $productId, $qty){
-	//global $runFile, $selling;
-	$url = 'https://trader.degiro.nl/trading/secure/v5/order/' . $confirmationId . ';jsessionid=' . sessionId . '?intAccount=' . intAccount . '&sessionId=' . sessionId;
+	global $config;
+	$url = 'https://trader.degiro.nl/trading/secure/v5/order/' . $confirmationId . ';jsessionid=' . $config['sessionId'] . '?intAccount=' . $config['intAccount'] . '&sessionId=' . $config['sessionId'];
 	curl_setopt_array($ch, [
 		CURLOPT_URL				=> $url,
 		CURLOPT_POST			=> true,
@@ -130,8 +116,19 @@ function confirmOrder($ch, $confirmationId, $postParams, $productId, $qty){
 		echo "Error confirming order, check result\n";
 	}
 
-	if($result['status'] == 0){
-		/*
+	if(!empty($result['data'])) {
+		return $result['data']['orderId'];
+	} else if(count($result['errors']) > 0) {
+		foreach ($result['errors'] as $error) {
+			echo $error['text'];
+		}
+	} else {
+		die('Unknow error');
+	}
+
+
+	/*if($result['status'] == 0){
+
 		$wrote = 0;
 		foreach($selling as $k => $v){
 			if($v['productId'] == $productId){
@@ -144,8 +141,8 @@ function confirmOrder($ch, $confirmationId, $postParams, $productId, $qty){
 		}else{
 			file_put_contents($runFile, "ERROR: could not find $productId" . json_encode($selling));
 		}
-		*/
-	}
+
+	}*/
 }
 
 
@@ -177,7 +174,7 @@ function updatePortfolio(){
 	if($info['http_code'] != 200 && $info['http_code'] != 201){
 		echo "error getting portfolio.. lets use cache (or remove cookie file to reload)\n";
 		die();
-		$result = file_get_contents(__DIR__ . '/portfolio.json'); 
+		$result = file_get_contents(__DIR__ . '/portfolio.json');
 	}
 
 	$result = json_decode($result,true);
@@ -243,7 +240,7 @@ function updatePortfolio(){
 function getOpenOrders(){
 	global $config;
 	$ch = curl_init();
-	
+
 	$cookieFile = $config['cookieFile'];
 
 	$url = $url = $config['tradingUrl'] . "v5/update/" . $config['intAccount'] . ";jsessionid=" . $config['sessionId'] . "?orders=0";
@@ -410,7 +407,7 @@ function getTradingInfo($ch, $issueId){
 		$prev = array_slice($result['series'][1]['data'], -2, 1)[0][1];
 		$last = array_slice($result['series'][1]['data'], -1)[0][1];
 	}
-	
+
 	$ret = array(
 		'quality'	=> $result['series'][0]['data']['quality'],
 		'lastPrice'	=> $result['series'][0]['data']['lastPrice'],
@@ -478,7 +475,7 @@ function getDegiroConfig(){
 			die("invalid json\n");
 	}
 	$result = json_decode($result, true);
-	
+
 	$config['intAccount'] = $result['data']['intAccount'];
 	#define('intAccount', $result['data']['intAccount']);
 	return $info['http_code'];
@@ -487,8 +484,8 @@ function getDegiroConfig(){
 
 function checkLogin(){
 	/*******
-	 * Test access to config, then PaUrl to get clientId, 
-	 * and then portfolio. 
+	 * Test access to config, then PaUrl to get clientId,
+	 * and then portfolio.
 	 * If any fails, we need to generate a new cookie?
 	 */
 	global $config;
@@ -496,7 +493,7 @@ function checkLogin(){
 
 	/** Test access to config **/
 	$headers[] = 'Content-Type: application/json;charset=UTF-8';
-	$headers[] = 'Accept: application/json, text/plain, */*';	
+	$headers[] = 'Accept: application/json, text/plain, */*';
 	$url = 'https://trader.degiro.nl/login/secure/config';
 	curl_setopt_array($ch, [
 		CURLOPT_URL				=> $url,
@@ -537,7 +534,7 @@ function checkLogin(){
 	$info = curl_getinfo($ch);
 	if($info['http_code'] != 200 && $info['http_code'] != 201)
 		return false;
-	
+
 	return true;
 
 }
@@ -598,18 +595,11 @@ function checkJson($json){
 	return true;
 }
 
-function normalizeFloat($value, $tick){
-	$tick = (int) $tick; // qty of zeros
-	if($tick < 1){
-		die("invalid normalization tick\n");
-	}
-	$base = 10 ** $tick;
-
-	$value= round((float)($value), $tick) * $base;
-	$value= ($value - ($value %5))/$base;	// last tick must end in 5 or 0
-
-	return $value;
-
+/**
+ *	A valid price must be a multiple of 0.0100
+ */
+function normalizeFloat($value){
+	return round($value, 2);
 }
 
 if (! function_exists("array_key_last")) {
@@ -617,7 +607,7 @@ if (! function_exists("array_key_last")) {
         if (!is_array($array) || empty($array)) {
             return NULL;
         }
-        
+
         return array_keys($array)[count($array)-1];
     }
 }
