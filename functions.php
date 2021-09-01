@@ -1,11 +1,9 @@
 <?php
 
+const WRONG_PARAM_TYPE_OF_ORDER = 1;
 //function checkOrdersToSell($ch, $text, $issueId, $productId, $qty, $cost, $trySell, $trySellUnit){
 function trySell($ch, $p, $trySell){
-	/* * *
-	 *	Check if the product is good to sell
-	 *
-	 */
+
 	global $config;
 	$debug = $config['debug'];
 
@@ -49,7 +47,7 @@ function trySell($ch, $p, $trySell){
 		$sellingPrice = max($lastPrice, $trySellUn);
 
 		echo date('Y-m-d H:i:s') . "|Placing order for $text to sell at $trySell ($qty * $sellingPrice)\n";
-		placeOrder($ch, $productId, $qty, $sellingPrice);
+		placeOrder($ch, $productId, $qty, $sellingPrice, "SELL");
 	}else{
 		if($debug)
 			echo "|not high enough to sell. lastPrice $lastPrice ($totalLast) diff: $diff\n";
@@ -58,23 +56,23 @@ function trySell($ch, $p, $trySell){
 }
 
 
-function placeOrder($ch, $productId, $qty, $price){
+function placeOrder($ch, $productId, $qty, $price, $typeOfOrder){
+	if($typeOfOrder != "BUY" && $typeOfOrder != "SELL") {
+		throw new \Exception('Param typeOfOrder should be "BUY" o "SELL"', WRONG_PARAM_TYPE_OF_ORDER);
+	}
+
+	//$fee = getFee($productId, $qty, $price, $typeOfOrder);
+	$confimation = getConfirmation($productId, $qty, $price, $typeOfOrder);
+	$confirmationId = $confimation['confirmationId'];
+	confirmOrder($ch, $confirmationId, $postParams, $productId, $qty);
+}
+
+function getConfirmation($productId, int $qty, $price, string $typeOfOrder) {
 	global $config;
-
-	#$productId = 4876499;
-	#$qty = 15;
-	#$price = (float)3.5;
-	$price = (float) $price;
-
-	## tmp log
-	$logfile = __DIR__ . '/placing_orders.txt';
-	$log = time() . "|$productId|$qty|$price\n";
-	file_put_contents($logfile, $log, FILE_APPEND);
-
+	$ch = curl_init();
 
 	$url = $config['tradingUrl'] . 'v5/checkOrder' . ';jsessionid=' . $config['sessionId'] . '?intAccount=' . $config['intAccount'] . '&sessionId=' . $config['sessionId'];
-	//$url = 'https://trader.degiro.nl/trading/secure/v5/checkOrder;jsessionid=' . sessionId . '?intAccount=' . intAccount . '&sessionId=' . sessionId;
-	$postParams = '{"buySell":"SELL","orderType":0,"productId":"' . $productId . '","timeType":1,"size":' . $qty . ',"price":' . $price . '}';
+	$postParams = '{"buySell":"' . $typeOfOrder . '","orderType":0,"productId":"' . $productId . '","timeType":1,"size":' . $qty . ',"price":' . $price . '}';
 
 	$headers[] = 'Content-Type: application/json;charset=UTF-8';
 	$headers[] = 'Accept: application/json, text/plain, */*';
@@ -84,6 +82,7 @@ function placeOrder($ch, $productId, $qty, $price){
 		CURLOPT_HTTPHEADER		=> $headers,
 		CURLOPT_POST			=> true,
 		CURLOPT_POSTFIELDS		=> $postParams,
+		CURLOPT_RETURNTRANSFER	=> true
 	]);
 
 	$result = curl_exec($ch);
@@ -92,10 +91,19 @@ function placeOrder($ch, $productId, $qty, $price){
 	}
 	$result = json_decode($result, true);
 	$result = $result['data'];
+	return $result;
+}
 
-	$confirmationId = $result['confirmationId'];
-	//$transactionFees = $result['transactionFees'];
-	confirmOrder($ch, $confirmationId, $postParams, $productId, $qty);
+function getFee($productId, int $qty, $price, string $typeOfOrder) {
+	$result = getConfirmation($productId, $qty, $price, $typeOfOrder);
+	$transactionFees = $result['transactionFees'];
+
+	$totalFee = 0;
+	foreach ($transactionFees as $fee) {
+		$totalFee += $fee['amount'];
+	}
+
+	return $totalFee;
 }
 
 function confirmOrder($ch, $confirmationId, $postParams, $productId, $qty){
@@ -421,8 +429,6 @@ function getDegiroConfig(){
 		die('could not get config');
 	}
 
-	//$result = (gzdecode($result));
-
 	// verify json
 	if($result != json_decode(json_encode($result), true)){
 			die("invalid json\n");
@@ -511,6 +517,7 @@ function checkLogin(){
 
 function webLogin($ch){
 	global $config;
+
 	curl_close($ch);
 	unset($ch);
 	$cookieFile = $config['cookieFile'];
@@ -565,7 +572,7 @@ function getFavoritesIds() {
 	global $config;
 	$intAccount = $config['intAccount'];
 	$sessionId = $config['sessionId'];
-	
+
 	$url = "https://trader.degiro.nl/pa/secure/favourites/lists?" . $intAccount . "&sessionId=" . $sessionId;
 	$ch = curl_init();
 
@@ -578,9 +585,30 @@ function getFavoritesIds() {
 	checkStatus(curl_getinfo($ch), 'could not get favourites');
 	$result = json_decode($result,true);
 	curl_close($ch);
-	
+
 	return $result['data'][0]['productIds'];
 
+}
+
+function searchProduct($search) {
+	global $config;
+	$intAccount = $config['intAccount'];
+	$sessionId = $config['sessionId'];
+
+	$url = "https://trader.degiro.nl/product_search/secure/v5/products/lookup?offset=0&limit=10&searchText=" . $search . "&intAccount=" . $intAccount . "&sessionId=" . $sessionId;
+	$ch = curl_init();
+
+	curl_setopt_array($ch, [
+		CURLOPT_URL		=> $url,
+		CURLOPT_RETURNTRANSFER	=> true
+	]);
+
+	$result = curl_exec($ch);
+	checkStatus(curl_getinfo($ch), 'could not get favourites');
+	$result = json_decode($result,true);
+	curl_close($ch);
+
+	return $result['products'];
 }
 
 /**
@@ -600,7 +628,7 @@ function getArrayProducts($ids) {
 	global $config;
 	$intAccount = $config['intAccount'];
 	$sessionId = $config['sessionId'];
-	
+
 	$url = "https://trader.degiro.nl/product_search/secure/v5/products/info?intAccount=$intAccount&sessionId=$sessionId";
 	$ch = curl_init($url);
 
@@ -608,7 +636,7 @@ function getArrayProducts($ids) {
 		'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36',
 		'Content-Type: application/json;charset=UTF-8'
 	);
-	
+
 	curl_setopt_array($ch, [
 		CURLOPT_HTTPHEADER		=> $headers,
 		CURLOPT_POSTFIELDS		=> json_encode($ids),
